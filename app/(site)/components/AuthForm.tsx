@@ -54,6 +54,7 @@ export default function AuthForm() {
 
         if(variant == "REGISTER")
         { axios.post('/api/register',data)
+            .then(()=> signIn('credentials', data))
             .catch(()=> toast.error('Something went wrong'))
             .finally(()=> setIsLoading(false))
         }
@@ -69,6 +70,7 @@ export default function AuthForm() {
                 }
                 if(callback?.ok && !callback?.error){
                     toast.success("Logged In")
+                    router.push('/users');
                 }
 
             })
