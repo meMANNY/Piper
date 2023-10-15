@@ -1,65 +1,50 @@
 import getCurrentUser from "@/app/actions/getCurrentUser";
 import { NextResponse } from "next/server";
-import prisma from "@/app/libs/prismadb";
-
+import prisma from '@/app/libs/prismadb';
 
 interface IParams{
-    conversationId?: string
+    conversationId?: string;
 }
 
-export async function POST(request:Request, {params}: {params: IParams}) {
+export async function DELETE(
+    request: Request,
+    {params}: { params: IParams}
+){
     try {
-        const currentUser = await getCurrentUser();
         const {conversationId} = params;
+        const currentUser = await getCurrentUser();
 
-        if(!currentUser?.id || !currentUser?.email){
+        if(!currentUser?.id)
+        {
             return new NextResponse('Unauthorized', {status: 401});
         }
-        
-        const conversation =  await prisma?.conversation.findUnique({
+
+        const existingConversation = await prisma.conversation.findUnique({
             where:{
                 id: conversationId
             },
             include: {
-                messages: {
-                    include:{
-                        seen: true,
-                    }
-                },
-                users: true,
+                users: true
             }
         });
-        if(!conversation)
-            {
-                return new NextResponse('Invalid ID', {status: 400});
-            }
+        if(!existingConversation)
+        {
+            return new NextResponse("Invalid ID" , {status: 400});
+        }
 
-            const lastMessage = conversation.messages[conversation.messages.length -1];
-            if(!lastMessage){
-                return NextResponse.json(conversation);
-            }
+        const deletedConversation = await prisma.conversation.deleteMany({
+            where: {
+              id: conversationId,
+              userIds: {
+                hasSome: [currentUser.id]
+              },
+            },
+          });
 
-        const updatedMessage = await prisma.message.update({
-            where:{
-                id: lastMessage.id
-            },
-            include: {
-                sender: true,
-                seen: true
-            },
-            data: {
-                seen: {
-                    connect:{
-                        id: currentUser.id
-                    }
-                }
-            }
-        });
-        
-        return NextResponse.json(updatedMessage);
+          return NextResponse.json(deletedConversation)
 
     } catch (error: any) {
-        console.log(error, "error_message_seen");
+        console.log(error, 'ERROR_CONVERSATION_DELETE');
         return new NextResponse("Internal Error", {status: 500});
     }
 }
